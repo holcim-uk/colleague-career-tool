@@ -26,12 +26,103 @@
   <circle cx="58" cy="28" r="9" fill="#164375"/>
 </svg>
 </template>
+<script>
+/* Holcim-styled replacement for the browser's alert() and confirm() boxes.
+   hcDialog({ title, message, confirmLabel, cancelLabel, danger }) returns a Promise<boolean>.
+   Leave cancelLabel out for a single-button notice (alert-style). */
+(function () {
+  if (window.hcDialog) return;
+  var css =
+    '.hcd-back{position:fixed;inset:0;z-index:100001;background:rgba(4,23,57,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;animation:hcd-fade .15s ease-out}' +
+    '.hcd-box{width:100%;max-width:440px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(4,23,57,.35);animation:hcd-pop .18s ease-out}' +
+    '.hcd-bar{height:4px;background:linear-gradient(90deg,#65c12a 0%,#05b7ed 50%,#164375 100%)}' +
+    '.hcd-bar.hcd-danger{background:#c0362c}' +
+    '.hcd-in{padding:26px 28px 24px}' +
+    '.hcd-t{margin:0 0 8px;font-family:Montserrat,system-ui,sans-serif;font-weight:800;font-size:20px;line-height:1.25;color:#041739}' +
+    '.hcd-m{margin:0;font-family:"Reddit Sans",system-ui,sans-serif;font-size:14.5px;line-height:1.55;color:#4b5563}' +
+    '.hcd-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;flex-wrap:wrap}' +
+    '.hcd-b{padding:10px 18px;border-radius:8px;font-family:Montserrat,system-ui,sans-serif;font-size:13px;cursor:pointer;line-height:1.2}' +
+    '.hcd-b:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(5,183,237,.35)}' +
+    '.hcd-c{background:transparent;border:1px solid #e5e7eb;color:#041739;font-weight:600}' +
+    '.hcd-c:hover{background:#f4f6fa}' +
+    '.hcd-ok{background:#041739;border:1px solid #041739;color:#fff;font-weight:700}' +
+    '.hcd-ok:hover{background:#164375;border-color:#164375}' +
+    '.hcd-ok.hcd-danger{background:#c0362c;border-color:#c0362c}' +
+    '.hcd-ok.hcd-danger:hover{background:#9f2a22;border-color:#9f2a22}' +
+    '@keyframes hcd-fade{from{opacity:0}}@keyframes hcd-pop{from{opacity:0;transform:translateY(8px) scale(.98)}}' +
+    '@media (prefers-reduced-motion:reduce){.hcd-back,.hcd-box{animation:none}}';
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  window.hcDialog = function (o) {
+    o = o || {};
+    if (!document.getElementById('hcd-css')) {
+      var s = el('style'); s.id = 'hcd-css'; s.textContent = css; document.head.appendChild(s);
+    }
+    return new Promise(function (resolve) {
+      var prevFocus = document.activeElement;
+      var prevOverflow = document.body.style.overflow;
+      var back = el('div', 'hcd-back');
+      var box = el('div', 'hcd-box');
+      box.setAttribute('role', o.cancelLabel ? 'alertdialog' : 'dialog');
+      box.setAttribute('aria-modal', 'true');
+      var id = 'hcd-' + Math.random().toString(36).slice(2, 8);
+      box.setAttribute('aria-labelledby', id + 't');
+      box.setAttribute('aria-describedby', id + 'm');
+      var inner = el('div', 'hcd-in');
+      var t = el('h2', 'hcd-t', o.title || ''); t.id = id + 't';
+      var m = el('p', 'hcd-m', o.message || ''); m.id = id + 'm';
+      var acts = el('div', 'hcd-acts');
+      var cancel = null;
+      if (o.cancelLabel) {
+        cancel = el('button', 'hcd-b hcd-c', o.cancelLabel); cancel.type = 'button';
+        acts.appendChild(cancel);
+      }
+      var ok = el('button', 'hcd-b hcd-ok' + (o.danger ? ' hcd-danger' : ''), o.confirmLabel || 'OK'); ok.type = 'button';
+      acts.appendChild(ok);
+      box.appendChild(el('div', 'hcd-bar' + (o.danger ? ' hcd-danger' : '')));
+      inner.appendChild(t); inner.appendChild(m); inner.appendChild(acts);
+      box.appendChild(inner); back.appendChild(box);
+
+      function close(result) {
+        document.removeEventListener('keydown', onKey, true);
+        back.remove();
+        document.body.style.overflow = prevOverflow;
+        if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
+        resolve(result);
+      }
+      function onKey(e) {
+        if (e.key === 'Escape') { e.preventDefault(); close(false); }
+        else if (e.key === 'Tab') {
+          var f = cancel ? [cancel, ok] : [ok];
+          var i = f.indexOf(document.activeElement);
+          e.preventDefault();
+          f[(i + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus();
+        }
+      }
+      ok.addEventListener('click', function () { close(true); });
+      if (cancel) cancel.addEventListener('click', function () { close(false); });
+      back.addEventListener('mousedown', function (e) { if (e.target === back) close(false); });
+      document.addEventListener('keydown', onKey, true);
+      document.body.style.overflow = 'hidden';
+      document.body.appendChild(back);
+      // For destructive actions, start on Cancel so a stray Enter doesn't delete anything.
+      (o.danger && cancel ? cancel : ok).focus();
+    });
+  };
+})();
+</script>
 </head>
 <body>
 <div id="root"></div>
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
+<script src="vendor/babel.min.js"></script>
 <script type="text/babel">
 const { useState, useEffect, useMemo, useRef } = React;
 
@@ -436,8 +527,8 @@ function App() {
   function deleteEntry(id) {
     setEntries(prev => prev.filter(e => e.id !== id));
   }
-  function clearAll() {
-    if (confirm('Clear all your reflections? This cannot be undone.')) setEntries([]);
+  async function clearAll() {
+    if (await hcDialog({ title: 'Clear all your reflections?', message: 'Everything you have written here will be removed from this device. This cannot be undone, so download a PDF first if you want to keep a copy.', confirmLabel: 'Clear all', cancelLabel: 'Cancel', danger: true })) setEntries([]);
   }
 
   return (
@@ -1055,7 +1146,7 @@ function downloadReflectionsPdf(entries) {
 
   const w = window.open('', '_blank');
   if (!w) {
-    alert('Please allow pop-ups for this page so the PDF can open in a new tab.');
+    hcDialog({ title: 'Allow pop-ups to download', message: 'Your PDF opens in a new tab so you can save or print it. Allow pop-ups for this page in your browser, then try again.', confirmLabel: 'OK' });
     return;
   }
   w.document.open();

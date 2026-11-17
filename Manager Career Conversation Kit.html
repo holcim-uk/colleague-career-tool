@@ -297,6 +297,67 @@ function Hero({ onStart }) {
 }
 
 // ── Conversation picker ──────────────────────────────────────────────────────
+// ── New kit dialog (replaces the browser's prompt box) ───────────────────────
+function NameDialog({ onSubmit, onCancel }) {
+  const [name, setName] = useState('');
+  const inputRef = useRef(null);
+  const trimmed = name.trim();
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    const onKey = (e) => { if (e.key === 'Escape') onCancel(); };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (trimmed) onSubmit(trimmed);
+  };
+
+  return (
+    <div
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 100000, background: 'rgba(4, 23, 57, 0.55)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+    >
+      <form
+        role="dialog" aria-modal="true" aria-labelledby="nk-title" onSubmit={submit}
+        style={{ width: '100%', maxWidth: 440, background: PAPER, borderRadius: 16, overflow: 'hidden', boxShadow: '0 24px 60px rgba(4, 23, 57, 0.35)' }}
+      >
+        <div style={{ height: 4, background: BRAND_GRADIENT }} />
+        <div style={{ padding: '26px 28px 24px' }}>
+          <div style={{ fontFamily: 'Montserrat', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: LIME, marginBottom: 8 }}>New kit</div>
+          <h2 id="nk-title" style={{ margin: '0 0 6px', fontFamily: 'Montserrat', fontWeight: 800, fontSize: 21, color: NAVY, lineHeight: 1.25 }}>Who is the conversation with?</h2>
+          <p style={{ margin: '0 0 20px', fontFamily: 'Reddit Sans', fontSize: 14, color: MUTE, lineHeight: 1.5 }}>We'll name the kit after them. It stays on this device only.</p>
+
+          <label htmlFor="nk-name" style={{ display: 'block', fontFamily: 'Montserrat', fontWeight: 600, fontSize: 12.5, color: NAVY, marginBottom: 6 }}>Colleague's first name</label>
+          <input
+            id="nk-name" ref={inputRef} value={name} onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Sam" autoComplete="off" maxLength={60}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: 10, border: `1.5px solid ${LINE}`, fontFamily: 'Reddit Sans', fontSize: 15, color: NAVY, outline: 'none', transition: 'border-color .15s, box-shadow .15s' }}
+            onFocus={(e) => { e.target.style.borderColor = CYAN; e.target.style.boxShadow = '0 0 0 3px rgba(5, 183, 237, 0.18)'; }}
+            onBlur={(e) => { e.target.style.borderColor = LINE; e.target.style.boxShadow = 'none'; }}
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
+            <button type="button" onClick={onCancel} style={{ padding: '10px 18px', borderRadius: 8, background: 'transparent', border: `1px solid ${LINE}`, color: NAVY, fontFamily: 'Montserrat', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button type="submit" disabled={!trimmed} style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: NAVY, color: '#fff', fontFamily: 'Montserrat', fontWeight: 700, fontSize: 13, cursor: trimmed ? 'pointer' : 'not-allowed', opacity: trimmed ? 1 : 0.45 }}>
+              Start kit →
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function ConvPicker({ convs, activeId, onPick, onNew, onDelete }) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
@@ -850,10 +911,8 @@ function App() {
   };
   const onUpdate = (next) => setConvs(prev => prev.map(c => c.id === next.id ? next : c));
 
-  const startNew = () => {
-    const name = prompt('Colleague\'s first name?');
-    if (name && name.trim()) onNew(name.trim());
-  };
+  const [askingName, setAskingName] = useState(false);
+  const startNew = () => setAskingName(true);
 
   return (
     <div>
@@ -908,6 +967,13 @@ function App() {
       <div style={{ borderTop: `1px solid ${LINE}`, padding: '24px 32px', textAlign: 'center', fontSize: 12, color: MUTE, fontFamily: 'Reddit Sans' }}>
         Holcim Career Conversation Kit · Companion to Career Reflections · Notes stay on this device
       </div>
+
+      {askingName && (
+        <NameDialog
+          onCancel={() => setAskingName(false)}
+          onSubmit={(name) => { setAskingName(false); onNew(name); }}
+        />
+      )}
     </div>
   );
 }
